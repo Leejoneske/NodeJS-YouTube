@@ -2,6 +2,7 @@ const express = require('express');
 const cors = require('cors');
 const ytdl = require('ytdl-core');
 const compression = require('compression');
+const { PassThrough } = require('stream');
 
 const app = express();
 const PORT = 4000;
@@ -33,7 +34,24 @@ app.get('/downloadmp3', async (req, res) => {
     const title = info.videoDetails.title.replace(/[^\x00-\x7F]/g, "");
     res.header('Content-Disposition', `attachment; filename="${title}.mp3"`);
     res.header('Content-Type', 'audio/mpeg');
-    ytdl(url, { filter: 'audioonly', quality: 'highestaudio' }).pipe(res);
+
+    const stream = ytdl(url, { filter: 'audioonly', quality: 'highestaudio' });
+    const passThrough = new PassThrough();
+
+    stream.pipe(passThrough);
+
+    passThrough.on('data', chunk => {
+      res.write(chunk);
+    });
+
+    passThrough.on('end', () => {
+      res.end();
+    });
+
+    passThrough.on('error', err => {
+      console.error(err);
+      res.sendStatus(500);
+    });
   } catch (err) {
     console.error(err);
     res.sendStatus(500);
@@ -51,10 +69,27 @@ app.get('/downloadmp4', async (req, res) => {
     const title = info.videoDetails.title.replace(/[^\x00-\x7F]/g, "");
     res.header('Content-Disposition', `attachment; filename="${title}.mp4"`);
     res.header('Content-Type', 'video/mp4');
-    ytdl(url, { 
+
+    const stream = ytdl(url, {
       filter: format => format.container === 'mp4' && format.hasVideo === true,
-      quality: 'highest' 
-    }).pipe(res);
+      quality: 'highest'
+    });
+    const passThrough = new PassThrough();
+
+    stream.pipe(passThrough);
+
+    passThrough.on('data', chunk => {
+      res.write(chunk);
+    });
+
+    passThrough.on('end', () => {
+      res.end();
+    });
+
+    passThrough.on('error', err => {
+      console.error(err);
+      res.sendStatus(500);
+    });
   } catch (err) {
     console.error(err);
     res.sendStatus(500);
